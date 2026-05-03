@@ -1,0 +1,31 @@
+<div class="success-overlay" *ngIf="isOpen" (click)="onClose()" role="presentation">
+  <div
+    class="success-card"
+    (click)="$event.stopPropagation()"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="success-title"
+    aria-describedby="success-desc">
+    <div class="check-wrap" aria-hidden="true">
+      <svg class="check-svg" viewBox="0 0 52 52">
+        <circle class="check-circle" cx="26" cy="26" r="24" fill="none" />
+        <path class="check-mark" fill="none" d="M14 27l8 8 16-16" />
+      </svg>
+    </div>
+    <h2 id="success-title">Paiement soumis avec succès !</h2>
+    <p id="success-desc">
+      Votre paiement est en cours de vérification par notre équipe. Vous recevrez un email de confirmation une fois
+      approuvé.
+    </p>
+    <div class="detail-block">
+      <div class="detail-row"><span>Plan</span><strong>{{ plan }}</strong></div>
+      <div class="detail-row"><span>Montant</span><strong>{{ formatAmount() }}</strong></div>
+      <div class="detail-row mono"><span>Référence</span><strong>{{ transactionRef }}</strong></div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn outline" (click)="downloadInvoicePdf.emit()">📄 Facture PDF (aperçu)</button>
+      <button type="button" class="btn ghost" (click)="onClose()">Fermer</button>
+      <button type="button" class="btn primary" (click)="goDashboard()">Retour au tableau de bord</button>
+    </div>
+  </div>
+</div>

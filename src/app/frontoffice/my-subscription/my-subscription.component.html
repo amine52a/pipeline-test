@@ -1,0 +1,46 @@
+<div class="my-sub-page">
+  <div class="page-header">
+    <div class="hero-badge">📋 My Subscription</div>
+    <h1>Your <span class="grad">Plan</span></h1>
+    <p>Manage your subscription, renewal and invoices.</p>
+  </div>
+
+  <div class="status-card">
+    <div class="status-head">
+      <div>
+        <h2>{{ plan.name }} <span class="dot">● ACTIVE</span></h2>
+        <p>Valid until {{ renewDate | date:'longDate' }}</p>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn outline" (click)="changePlan()">Change Plan</button>
+        <button type="button" class="btn primary" (click)="renew()">Renew</button>
+      </div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><span [style.width.%]="progress * 100"></span></div>
+      <span class="pct">{{ progress * 100 | number:'1.0-0' }}% of the period used</span>
+    </div>
+    <div class="renew-row">
+      <label class="toggle-line">
+        <input type="checkbox" [checked]="autoRenew" (change)="toggleAutoRenew()">
+        <span>Auto-renewal</span>
+      </label>
+    </div>
+  </div>
+
+  <section class="section">
+    <h3>Payment History</h3>
+    <p class="muted">PDF invoices will appear here after admin validation.</p>
+    <div class="empty-box">No recent payments to display (demo).</div>
+  </section>
+
+</div>
+
+<!-- Payment modal for renewal -->
+<app-subscription-payment
+  *ngIf="showPayment && currentSubscription"
+  [plan]="plan"
+  [subscription]="currentSubscription"
+  (close)="closePayment()"
+  (paymentSuccess)="onRenewSuccess($event)">
+</app-subscription-payment>
