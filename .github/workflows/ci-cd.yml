@@ -424,3 +424,73 @@ jobs:
           echo "📥 Download the **sonarqube-report** artifact above to see code quality results." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🐳 Docker images pushed to: \`https://hub.docker.com/u/bestdragon\`" >> $GITHUB_STEP_SUMMARY
+
+
+  # ════════════════════════════════════════════════════════
+  # JOB 5 — DEPLOY TO RAILWAY (live hosting)
+  # Runs only on main branch after build passes
+  # Setup: https://railway.app → New Project → Deploy from GitHub
+  # ════════════════════════════════════════════════════════
+  deploy:
+    name: 🌍 Deploy to Railway
+    runs-on: ubuntu-latest
+    needs: [ build-and-test ]
+    if: github.ref == 'refs/heads/main' && needs.build-and-test.result == 'success'
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🚂 Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: 🚀 Deploy Backend Service
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "⚠️  RAILWAY_TOKEN not set — skipping deploy"
+            echo "   To enable: https://railway.app → Account → Tokens → Add RAILWAY_TOKEN secret"
+            exit 0
+          fi
+          cd backend
+          railway up --service matchy-backend --detach
+          echo "✅ Backend deployed"
+
+      - name: 🚀 Deploy ML Service
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then exit 0; fi
+          cd services/ml-prediction-service
+          railway up --service matchy-ml --detach
+          echo "✅ ML Service deployed"
+
+  # ════════════════════════════════════════════════════════
+  # JOB 6 — PIPELINE SUMMARY
+  # ════════════════════════════════════════════════════════
+  summary:
+    name: 📋 Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [ sonarqube-analysis, build-and-test, docker-push, deploy ]
+    if: always()
+
+    steps:
+      - name: 📋 Write summary
+        run: |
+          echo "## 🚀 Matchy CI/CD Pipeline — Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔍 SonarQube Analysis | ${{ needs.sonarqube-analysis.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔨 Build & Test | ${{ needs.build-and-test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🐳 Docker Push | ${{ needs.docker-push.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌍 Deploy to Railway | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**By:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📥 Download the **sonarqube-report** artifact to see code quality." >> $GITHUB_STEP_SUMMARY
+          echo "🐳 Docker images: \`https://hub.docker.com/u/bestdragon\`" >> $GITHUB_STEP_SUMMARY
+          echo "🌍 Live app: \`https://railway.app/dashboard\`" >> $GITHUB_STEP_SUMMARY
