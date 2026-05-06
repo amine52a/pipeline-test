@@ -340,7 +340,7 @@ jobs:
       - name: 🐳 Build & Push Event Service
         uses: docker/build-push-action@v5
         with:
-          context: ./services/event-service
+          context: ./services
           file: ./services/event-service/Dockerfile
           push: true
           tags: |
@@ -350,7 +350,7 @@ jobs:
       - name: 🐳 Build & Push Content Service
         uses: docker/build-push-action@v5
         with:
-          context: ./services/content-service
+          context: ./services
           file: ./services/content-service/Dockerfile
           push: true
           tags: |
@@ -360,7 +360,7 @@ jobs:
       - name: 🐳 Build & Push Subscription Service
         uses: docker/build-push-action@v5
         with:
-          context: ./services/subscription-service
+          context: ./services
           file: ./services/subscription-service/Dockerfile
           push: true
           tags: |
