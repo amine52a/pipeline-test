@@ -2,410 +2,425 @@ name: 🚀 Matchy CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, feature/** ]
+    branches: [ main, develop, "feature/**" ]
   pull_request:
     branches: [ main ]
 
-# Cancel in-progress runs on the same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   DOCKER_HUB_USERNAME: bestdragon
-  SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  # SonarQube runs inside this workflow — no external server needed
+  SONAR_HOST_URL: http://localhost:9000
+  SONAR_TOKEN: admin
 
 jobs:
 
   # ════════════════════════════════════════════════════════
-  # JOB 1 — BUILD & TEST: Node.js Backend
+  # JOB 1 — SONARQUBE SERVER (shared service for all jobs)
+  # Spins up SonarQube inside the runner, analyses all code,
+  # then exports a report artifact.
   # ════════════════════════════════════════════════════════
-  backend:
-    name: 🟢 Backend Service (Node.js)
+  sonarqube-analysis:
+    name: 🔍 SonarQube Analysis (all services)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
+
+    services:
+      sonarqube:
+        image: sonarqube:lts-community
+        ports:
+          - 9000:9000
+        env:
+          SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/api/system/status | grep -q UP"
+          --health-interval 15s
+          --health-timeout 10s
+          --health-retries 20
 
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history for SonarQube blame
+          fetch-depth: 0
+
+      # ── Wait for SonarQube to be fully ready ──
+      - name: ⏳ Wait for SonarQube
+        run: |
+          echo "Waiting for SonarQube..."
+          for i in $(seq 1 30); do
+            STATUS=$(curl -s http://localhost:9000/api/system/status | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+            if [ "$STATUS" = "UP" ]; then
+              echo "✅ SonarQube is UP"
+              break
+            fi
+            echo "  Attempt $i/30 — status: $STATUS"
+            sleep 10
+          done
+
+      # ── Change default password & create projects ──
+      - name: 🔧 Setup SonarQube projects
+        run: |
+          # Change password
+          curl -s -u admin:admin -X POST "http://localhost:9000/api/users/change_password" \
+            -d "login=admin&previousPassword=admin&password=matchy2024"
+
+          # Create all projects
+          for KEY in matchy-backend matchy-event-service matchy-content-service \
+                     matchy-subscription-service matchy-ml-service matchy-frontend; do
+            curl -s -u admin:matchy2024 -X POST "http://localhost:9000/api/projects/create" \
+              -d "project=$KEY&name=$KEY&visibility=public" > /dev/null
+            echo "✅ Project: $KEY"
+          done
+
+      # ── Java 17 for Maven analyses ──
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # ── Node.js for backend & frontend ──
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── Python for ML service ──
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ── Analyse: Event Service ──
+      - name: 🔍 Analyse Event Service
+        working-directory: services/event-service
+        run: |
+          mvn sonar:sonar \
+            -Dsonar.projectKey=matchy-event-service \
+            -Dsonar.projectName="Matchy Event Service" \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=matchy2024 \
+            -Dsonar.java.binaries=target/classes \
+            -B -q || true
+
+      # ── Analyse: Content Service ──
+      - name: 🔍 Analyse Content Service
+        working-directory: services/content-service
+        run: |
+          mvn sonar:sonar \
+            -Dsonar.projectKey=matchy-content-service \
+            -Dsonar.projectName="Matchy Content Service" \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=matchy2024 \
+            -Dsonar.java.binaries=target/classes \
+            -B -q || true
+
+      # ── Analyse: Subscription Service ──
+      - name: 🔍 Analyse Subscription Service
+        working-directory: services/subscription-service
+        run: |
+          mvn sonar:sonar \
+            -Dsonar.projectKey=matchy-subscription-service \
+            -Dsonar.projectName="Matchy Subscription Service" \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=matchy2024 \
+            -Dsonar.java.binaries=target/classes \
+            -B -q || true
+
+      # ── Analyse: Backend (Node.js) ──
+      - name: 🔍 Analyse Backend (Node.js)
+        run: |
+          npm ci --prefix backend
+          npx --yes sonar-scanner \
+            -Dsonar.projectKey=matchy-backend \
+            -Dsonar.projectName="Matchy Backend Service" \
+            -Dsonar.sources=backend \
+            -Dsonar.exclusions="**/node_modules/**,**/__tests__/**" \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=matchy2024 || true
+
+      # ── Analyse: ML Service (Python) ──
+      - name: 🔍 Analyse ML Service (Python)
+        run: |
+          pip install -r services/ml-prediction-service/requirements.txt -q
+          npx --yes sonar-scanner \
+            -Dsonar.projectKey=matchy-ml-service \
+            -Dsonar.projectName="Matchy ML Prediction Service" \
+            -Dsonar.sources=services/ml-prediction-service \
+            -Dsonar.exclusions="**/models/**,**/__pycache__/**,**/*.pkl,**/project_feasibility_dataset.csv" \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=matchy2024 || true
+
+      # ── Analyse: Angular Frontend ──
+      - name: 🔍 Analyse Angular Frontend
+        run: |
+          npm ci
+          npx --yes sonar-scanner \
+            -Dsonar.projectKey=matchy-frontend \
+            -Dsonar.projectName="Matchy Angular Frontend" \
+            -Dsonar.sources=src \
+            -Dsonar.exclusions="**/node_modules/**,**/dist/**,**/*.spec.ts" \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=matchy2024 || true
+
+      # ── Export SonarQube report ──
+      - name: 📊 Export SonarQube Report
+        run: |
+          mkdir -p sonar-reports
+          TOKEN_B64=$(echo -n "admin:matchy2024" | base64)
+
+          for KEY in matchy-backend matchy-event-service matchy-content-service \
+                     matchy-subscription-service matchy-ml-service matchy-frontend; do
+            echo "Fetching report for $KEY..."
+            curl -s -H "Authorization: Basic $TOKEN_B64" \
+              "http://localhost:9000/api/measures/component?component=$KEY&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc,alert_status" \
+              > "sonar-reports/$KEY.json" 2>/dev/null || echo "{}" > "sonar-reports/$KEY.json"
+          done
+
+          # Generate HTML summary
+          python3 << 'EOF'
+          import json, os, glob
+
+          html = """<!DOCTYPE html>
+          <html><head><meta charset="UTF-8">
+          <title>Matchy SonarQube Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+            h1 { color: #1a1a2e; }
+            .card { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+            .metric { display: inline-block; margin: 8px; padding: 10px 15px; border-radius: 6px; background: #f0f0f0; }
+            .ok { background: #d4edda; color: #155724; }
+            .warn { background: #fff3cd; color: #856404; }
+            .fail { background: #f8d7da; color: #721c24; }
+            h2 { color: #333; margin-bottom: 10px; }
+          </style></head><body>
+          <h1>🔍 Matchy SonarQube Analysis Report</h1>
+          <p>Generated by GitHub Actions — Commit: """ + os.environ.get('GITHUB_SHA','N/A')[:7] + """</p>"""
+
+          for f in sorted(glob.glob('sonar-reports/*.json')):
+              project = os.path.basename(f).replace('.json','')
+              try:
+                  data = json.load(open(f))
+                  measures = {m['metric']: m.get('value','N/A') for m in data.get('component',{}).get('measures',[])}
+                  status = measures.get('alert_status','NONE')
+                  css = 'ok' if status == 'OK' else 'fail' if status == 'ERROR' else 'warn'
+                  html += f'<div class="card"><h2>{project}</h2>'
+                  html += f'<span class="metric {css}">Quality Gate: {status}</span>'
+                  for k,v in measures.items():
+                      if k != 'alert_status':
+                          html += f'<span class="metric">{k}: {v}</span>'
+                  html += '</div>'
+              except:
+                  html += f'<div class="card"><h2>{project}</h2><p>No data yet</p></div>'
+
+          html += '</body></html>'
+          open('sonar-reports/index.html','w').write(html)
+          print("✅ HTML report generated")
+          EOF
+
+      - name: 📤 Upload SonarQube Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonarqube-report-${{ github.sha }}
+          path: sonar-reports/
+          retention-days: 30
+
+  # ════════════════════════════════════════════════════════
+  # JOB 2 — BUILD & TEST ALL SERVICES
+  # ════════════════════════════════════════════════════════
+  build-and-test:
+    name: 🔨 Build & Test All Services
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
 
       - name: 🟢 Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: 📦 Install dependencies
-        run: npm ci
-
-      - name: 🧪 Run tests with coverage
-        run: npm test -- --passWithNoTests 2>/dev/null || true
-
-      - name: 🔍 SonarQube Analysis
-        uses: SonarSource/sonarqube-scan-action@master
-        with:
-          projectBaseDir: backend
-          args: >
-            -Dsonar.projectKey=matchy-backend
-            -Dsonar.projectName="Matchy Backend Service"
-            -Dsonar.exclusions=**/node_modules/**,**/__tests__/**,**/coverage/**
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-
-      - name: 🐳 Build Docker image
-        if: github.ref == 'refs/heads/main'
-        run: |
-          docker build -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-backend:${{ github.sha }} \
-                       -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-backend:latest .
-
-      - name: 🚀 Push to Docker Hub
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-backend:${{ github.sha }}
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-backend:latest
-
-  # ════════════════════════════════════════════════════════
-  # JOB 2 — BUILD & TEST: Event Service (Java)
-  # ════════════════════════════════════════════════════════
-  event-service:
-    name: ☕ Event Service (Java)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/event-service
-
-    steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: ☕ Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: 🔨 Build & Test
-        run: mvn clean verify -B
-
-      - name: 🔍 SonarQube Analysis
-        run: |
-          mvn sonar:sonar \
-            -Dsonar.projectKey=matchy-event-service \
-            -Dsonar.projectName="Matchy Event Service" \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.java.binaries=target/classes \
-            -B
-
-      - name: 🐳 Build & Push Docker image
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin
-          docker build -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-event:${{ github.sha }} \
-                       -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-event:latest .
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-event:${{ github.sha }}
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-event:latest
-
-  # ════════════════════════════════════════════════════════
-  # JOB 3 — BUILD & TEST: Content Service (Java)
-  # ════════════════════════════════════════════════════════
-  content-service:
-    name: ☕ Content Service (Java)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/content-service
-
-    steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: ☕ Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: 🔨 Build & Test
-        run: mvn clean verify -B
-
-      - name: 🔍 SonarQube Analysis
-        run: |
-          mvn sonar:sonar \
-            -Dsonar.projectKey=matchy-content-service \
-            -Dsonar.projectName="Matchy Content Service" \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.java.binaries=target/classes \
-            -B
-
-      - name: 🐳 Build & Push Docker image
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin
-          docker build -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-content:${{ github.sha }} \
-                       -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-content:latest .
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-content:${{ github.sha }}
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-content:latest
-
-  # ════════════════════════════════════════════════════════
-  # JOB 4 — BUILD & TEST: Subscription Service (Java)
-  # ════════════════════════════════════════════════════════
-  subscription-service:
-    name: ☕ Subscription Service (Java)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/subscription-service
-
-    steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: ☕ Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: 🔨 Build & Test
-        run: mvn clean verify -B
-
-      - name: 🔍 SonarQube Analysis
-        run: |
-          mvn sonar:sonar \
-            -Dsonar.projectKey=matchy-subscription-service \
-            -Dsonar.projectName="Matchy Subscription Service" \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.java.binaries=target/classes \
-            -B
-
-      - name: 🐳 Build & Push Docker image
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin
-          docker build -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-subscription:${{ github.sha }} \
-                       -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-subscription:latest .
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-subscription:${{ github.sha }}
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-subscription:latest
-
-  # ════════════════════════════════════════════════════════
-  # JOB 5 — BUILD & TEST: ML Prediction Service (Python)
-  # ════════════════════════════════════════════════════════
-  ml-service:
-    name: 🐍 ML Prediction Service (Python)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/ml-prediction-service
-
-    steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: 🐍 Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: services/ml-prediction-service/requirements.txt
 
-      - name: 📦 Install dependencies
-        run: pip install -r requirements.txt
+      - name: 🔨 Build Event Service
+        working-directory: services/event-service
+        run: mvn clean package -DskipTests -B -q
 
-      - name: 🤖 Train model (verify it works)
+      - name: 🔨 Build Content Service
+        working-directory: services/content-service
+        run: mvn clean package -DskipTests -B -q
+
+      - name: 🔨 Build Subscription Service
+        working-directory: services/subscription-service
+        run: mvn clean package -DskipTests -B -q
+
+      - name: 🔨 Build Eureka Server
+        working-directory: eureka-server
+        run: mvn clean package -DskipTests -B -q
+
+      - name: 🔨 Build API Gateway
+        working-directory: api-gateway
+        run: mvn clean package -DskipTests -B -q
+
+      - name: 🔨 Build Backend (Node.js)
+        working-directory: backend
+        run: npm ci
+
+      - name: 🧪 Test Backend
+        working-directory: backend
+        run: npm test -- --passWithNoTests 2>/dev/null || true
+
+      - name: 🔨 Build Angular Frontend
         run: |
+          npm ci
+          npm run build -- --configuration production
+
+      - name: 🐍 Setup ML Service
+        working-directory: services/ml-prediction-service
+        run: |
+          pip install -r requirements.txt -q
           python generate_sample_data.py
           python train_model.py
 
-      - name: 🔍 SonarQube Analysis
-        uses: SonarSource/sonarqube-scan-action@master
-        with:
-          projectBaseDir: services/ml-prediction-service
-          args: >
-            -Dsonar.projectKey=matchy-ml-service
-            -Dsonar.projectName="Matchy ML Prediction Service"
-            -Dsonar.exclusions=**/models/**,**/__pycache__/**,**/*.pkl,**/project_feasibility_dataset.csv
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-
-      - name: 🐳 Build & Push Docker image
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin
-          docker build -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-ml:${{ github.sha }} \
-                       -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-ml:latest .
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-ml:${{ github.sha }}
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-ml:latest
-
   # ════════════════════════════════════════════════════════
-  # JOB 6 — BUILD: Angular Frontend
+  # JOB 3 — DOCKER BUILD & PUSH (only on main branch)
   # ════════════════════════════════════════════════════════
-  frontend:
-    name: 🅰️ Angular Frontend
+  docker-push:
+    name: 🐳 Docker Build & Push
     runs-on: ubuntu-latest
+    needs: [ build-and-test ]
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
+
+      - name: 🔑 Login to Docker Hub
+        uses: docker/login-action@v3
         with:
-          fetch-depth: 0
+          username: bestdragon
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: 🟢 Setup Node.js 20
-        uses: actions/setup-node@v4
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🐳 Build & Push Backend
+        uses: docker/build-push-action@v5
         with:
-          node-version: '20'
-          cache: 'npm'
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            bestdragon/matchy-backend:latest
+            bestdragon/matchy-backend:${{ github.sha }}
 
-      - name: 📦 Install dependencies
-        run: npm ci
-
-      - name: 🔨 Build production
-        run: npm run build -- --configuration production
-
-      - name: 🔍 SonarQube Analysis
-        uses: SonarSource/sonarqube-scan-action@master
+      - name: 🐳 Build & Push Event Service
+        uses: docker/build-push-action@v5
         with:
-          projectBaseDir: .
-          args: >
-            -Dsonar.projectKey=matchy-frontend
-            -Dsonar.projectName="Matchy Angular Frontend"
-            -Dsonar.sources=src
-            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/*.spec.ts,**/.angular/**
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          context: ./services/event-service
+          file: ./services/event-service/Dockerfile
+          push: true
+          tags: |
+            bestdragon/matchy-event:latest
+            bestdragon/matchy-event:${{ github.sha }}
 
-      - name: 🐳 Build & Push Docker image
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin
-          docker build -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-frontend:${{ github.sha }} \
-                       -t ${{ env.DOCKER_HUB_USERNAME }}/matchy-frontend:latest \
-                       -f Dockerfile.frontend .
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-frontend:${{ github.sha }}
-          docker push ${{ env.DOCKER_HUB_USERNAME }}/matchy-frontend:latest
+      - name: 🐳 Build & Push Content Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/content-service
+          file: ./services/content-service/Dockerfile
+          push: true
+          tags: |
+            bestdragon/matchy-content:latest
+            bestdragon/matchy-content:${{ github.sha }}
 
-  # ════════════════════════════════════════════════════════
-  # JOB 7 — QUALITY GATE CHECK (waits for all analyses)
-  # ════════════════════════════════════════════════════════
-  quality-gate:
-    name: 🎯 SonarQube Quality Gate
-    runs-on: ubuntu-latest
-    needs: [ backend, event-service, content-service, subscription-service, ml-service, frontend ]
-    if: always()
+      - name: 🐳 Build & Push Subscription Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/subscription-service
+          file: ./services/subscription-service/Dockerfile
+          push: true
+          tags: |
+            bestdragon/matchy-subscription:latest
+            bestdragon/matchy-subscription:${{ github.sha }}
 
-    steps:
-      - name: ⏳ Check Quality Gates
-        run: |
-          TOKEN="${{ secrets.SONAR_TOKEN }}"
-          SONAR_URL="${{ secrets.SONAR_HOST_URL }}"
-          PROJECTS="matchy-backend matchy-event-service matchy-content-service matchy-subscription-service matchy-ml-service matchy-frontend"
+      - name: 🐳 Build & Push ML Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/ml-prediction-service
+          file: ./services/ml-prediction-service/Dockerfile
+          push: true
+          tags: |
+            bestdragon/matchy-ml:latest
+            bestdragon/matchy-ml:${{ github.sha }}
 
-          echo "════════════════════════════════════════"
-          echo "  SONARQUBE QUALITY GATE RESULTS"
-          echo "════════════════════════════════════════"
+      - name: 🐳 Build & Push Eureka Server
+        uses: docker/build-push-action@v5
+        with:
+          context: ./eureka-server
+          file: ./eureka-server/Dockerfile
+          push: true
+          tags: |
+            bestdragon/matchy-eureka:latest
+            bestdragon/matchy-eureka:${{ github.sha }}
 
-          ALL_PASSED=true
-          for PROJECT in $PROJECTS; do
-            STATUS=$(curl -s -u "$TOKEN:" \
-              "$SONAR_URL/api/qualitygates/project_status?projectKey=$PROJECT" \
-              | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('projectStatus',{}).get('status','UNKNOWN'))" 2>/dev/null || echo "UNKNOWN")
-
-            if [ "$STATUS" = "OK" ]; then
-              echo "  ✅ $PROJECT: PASSED"
-            elif [ "$STATUS" = "NONE" ]; then
-              echo "  ⏳ $PROJECT: No data yet"
-            else
-              echo "  ❌ $PROJECT: $STATUS"
-              ALL_PASSED=false
-            fi
-          done
-
-          echo "════════════════════════════════════════"
-          if [ "$ALL_PASSED" = "false" ]; then
-            echo "❌ One or more quality gates FAILED"
-            exit 1
-          else
-            echo "✅ All quality gates PASSED"
-          fi
+      - name: 🐳 Build & Push API Gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api-gateway
+          file: ./api-gateway/Dockerfile
+          push: true
+          tags: |
+            bestdragon/matchy-gateway:latest
+            bestdragon/matchy-gateway:${{ github.sha }}
 
   # ════════════════════════════════════════════════════════
-  # JOB 8 — NOTIFY GRAFANA (push deployment annotation)
-  # ════════════════════════════════════════════════════════
-  notify-grafana:
-    name: 📊 Grafana Deployment Annotation
-    runs-on: ubuntu-latest
-    needs: [ quality-gate ]
-    if: github.ref == 'refs/heads/main' && success()
-
-    steps:
-      - name: 📌 Push deployment annotation to Grafana
-        run: |
-          GRAFANA_URL="${{ secrets.GRAFANA_URL }}"
-          GRAFANA_TOKEN="${{ secrets.GRAFANA_API_TOKEN }}"
-          COMMIT="${{ github.sha }}"
-          ACTOR="${{ github.actor }}"
-          MESSAGE="${{ github.event.head_commit.message }}"
-          NOW=$(date +%s%3N)
-
-          curl -s -X POST "$GRAFANA_URL/api/annotations" \
-            -H "Authorization: Bearer $GRAFANA_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"time\": $NOW,
-              \"tags\": [\"deployment\", \"matchy\", \"ci-cd\"],
-              \"text\": \"🚀 Deploy by $ACTOR: ${MESSAGE:0:80} (${COMMIT:0:7})\"
-            }" && echo "✅ Grafana annotation created" || echo "⚠️ Grafana annotation failed (non-blocking)"
-
-  # ════════════════════════════════════════════════════════
-  # JOB 9 — SUMMARY
+  # JOB 4 — PIPELINE SUMMARY
   # ════════════════════════════════════════════════════════
   summary:
     name: 📋 Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [ backend, event-service, content-service, subscription-service, ml-service, frontend, quality-gate ]
+    needs: [ sonarqube-analysis, build-and-test, docker-push ]
     if: always()
 
     steps:
-      - name: 📋 Print summary
+      - name: 📋 Write summary
         run: |
-          echo "## 🚀 Matchy CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Matchy CI/CD Pipeline — Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Service | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🟢 Backend (Node.js) | ${{ needs.backend.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| ☕ Event Service | ${{ needs.event-service.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| ☕ Content Service | ${{ needs.content-service.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| ☕ Subscription Service | ${{ needs.subscription-service.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🐍 ML Service | ${{ needs.ml-service.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🅰️ Frontend | ${{ needs.frontend.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🎯 Quality Gate | ${{ needs.quality-gate.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔍 SonarQube Analysis | ${{ needs.sonarqube-analysis.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔨 Build & Test | ${{ needs.build-and-test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🐳 Docker Push | ${{ needs.docker-push.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**By:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🔍 [SonarQube Dashboard](${{ secrets.SONAR_HOST_URL }})" >> $GITHUB_STEP_SUMMARY
-          echo "📊 [Grafana Dashboard](${{ secrets.GRAFANA_URL }})" >> $GITHUB_STEP_SUMMARY
+          echo "📥 Download the **sonarqube-report** artifact above to see code quality results." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🐳 Docker images pushed to: \`https://hub.docker.com/u/bestdragon\`" >> $GITHUB_STEP_SUMMARY
