@@ -37,6 +37,7 @@ export class BoSidebarComponent implements OnInit, OnDestroy {
     { label: 'Payments', icon: '💰', route: '/backoffice/subscription-pay' },
     { label: 'Promo Codes', icon: '🎁', route: '/backoffice/promo-codes' },
     { label: 'User Management', icon: '🛡️', route: '/backoffice/user-management' },
+    { label: 'AI Predictor', icon: '🤖', route: '/backoffice/ml-prediction' },
   ];
 
   private subscriptions: Subscription[] = [];

@@ -1,4 +1,12 @@
-FROM amazoncorretto:17
-EXPOSE 8081
-ADD target/content-service-0.0.1-SNAPSHOT.jar content-service.jar
-ENTRYPOINT ["java", "-jar","content-service.jar"]
+FROM maven:3.9.6-amazoncorretto-17 AS build
+WORKDIR /app
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+COPY src ./src
+RUN mvn clean package -DskipTests -B
+
+FROM amazoncorretto:17-alpine
+WORKDIR /app
+COPY --from=build /app/target/*.jar content-service.jar
+EXPOSE 8083
+ENTRYPOINT ["java", "-jar", "content-service.jar"]

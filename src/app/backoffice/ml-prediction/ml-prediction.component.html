@@ -1,0 +1,265 @@
+<div class="ml-page">
+
+  <!-- ── HEADER ── -->
+  <div class="ml-header">
+    <div class="ml-header-left">
+      <div class="ml-header-icon">🤖</div>
+      <div>
+        <h1>AI Project Feasibility Predictor</h1>
+        <p>Use machine learning to predict whether a project will succeed</p>
+      </div>
+    </div>
+
+    <!-- Model badge -->
+    <div class="model-badge" *ngIf="modelInfo && !serviceOffline">
+      <div class="model-badge-row">
+        <span class="badge-label">Model</span>
+        <span class="badge-value">{{ modelInfo.model_name }}</span>
+      </div>
+      <div class="model-badge-row">
+        <span class="badge-label">F1</span>
+        <span class="badge-value accent">{{ (modelInfo.f1_score * 100).toFixed(1) }}%</span>
+      </div>
+      <div class="model-badge-row">
+        <span class="badge-label">AUC</span>
+        <span class="badge-value accent">{{ (modelInfo.auc * 100).toFixed(1) }}%</span>
+      </div>
+    </div>
+
+    <!-- Offline warning -->
+    <div class="offline-badge" *ngIf="serviceOffline">
+      <span>⚠️</span>
+      <div>
+        <strong>ML Service Offline</strong>
+        <small>Start it: <code>python app.py</code> in <code>services/ml-prediction-service</code></small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN GRID ── -->
+  <div class="ml-grid">
+
+    <!-- ── LEFT: FORM ── -->
+    <div class="ml-card form-card">
+      <h2 class="card-title">📝 Project Parameters</h2>
+
+      <form [formGroup]="form" (ngSubmit)="predict()">
+
+        <!-- Row 1 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>💰 Budget ($)</label>
+            <input type="number" formControlName="budget" class="form-input" min="0" placeholder="50000">
+          </div>
+          <div class="form-group">
+            <label>👥 Team Size</label>
+            <input type="number" formControlName="team_size" class="form-input" min="1" placeholder="5">
+          </div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>📅 Duration (months)</label>
+            <input type="number" formControlName="duration_months" class="form-input" min="1" placeholder="6">
+          </div>
+          <div class="form-group">
+            <label>⭐ Team Experience (yrs)</label>
+            <input type="number" formControlName="team_experience_years" class="form-input" min="0" placeholder="5">
+          </div>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>🎯 Complexity</label>
+            <select formControlName="complexity" class="form-input">
+              <option *ngFor="let o of complexityOptions" [value]="o">{{ o | titlecase }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>🏢 Client Experience</label>
+            <select formControlName="client_experience" class="form-input">
+              <option *ngFor="let o of experienceOptions" [value]="o">{{ o | titlecase }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Row 4 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>💻 Technology Stack</label>
+            <select formControlName="technology_stack" class="form-input">
+              <option *ngFor="let o of technologyOptions" [value]="o">{{ o | titlecase }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>📋 Requirements Clarity</label>
+            <select formControlName="requirements_clarity" class="form-input">
+              <option *ngFor="let o of clarityOptions" [value]="o">{{ o | titlecase }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Row 5 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>🤝 Stakeholder Involvement</label>
+            <select formControlName="stakeholder_involvement" class="form-input">
+              <option *ngFor="let o of involvementOptions" [value]="o">{{ o | titlecase }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>⚠️ Risk Factors (0–10)</label>
+            <input type="number" formControlName="risk_factors" class="form-input" min="0" max="10" placeholder="3">
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="btn-row">
+          <button type="submit" class="btn-predict" [disabled]="loading || form.invalid">
+            <span *ngIf="!loading">🔮 Predict Feasibility</span>
+            <span *ngIf="loading" class="spinner-text">⏳ Analysing...</span>
+          </button>
+          <button type="button" class="btn-reset" (click)="reset()">🔄 Reset</button>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- ── RIGHT: RESULT ── -->
+    <div class="ml-card result-card">
+
+      <!-- Placeholder when no result -->
+      <div class="result-placeholder" *ngIf="!result && !loading && !error">
+        <div class="placeholder-icon">🔮</div>
+        <h3>Ready to Predict</h3>
+        <p>Fill in the project parameters on the left and click <strong>Predict Feasibility</strong> to get an AI-powered assessment.</p>
+        <div class="placeholder-features">
+          <div class="pf-item">✅ Success probability</div>
+          <div class="pf-item">⚠️ Risk level assessment</div>
+          <div class="pf-item">💡 AI recommendation</div>
+          <div class="pf-item">🎲 Confidence scoring</div>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div class="result-loading" *ngIf="loading">
+        <div class="loading-ring"></div>
+        <p>Analysing project parameters…</p>
+      </div>
+
+      <!-- Error -->
+      <div class="result-error" *ngIf="error && !loading">
+        <div class="error-icon">❌</div>
+        <h3>Prediction Failed</h3>
+        <p>{{ error }}</p>
+        <button class="btn-retry" (click)="loadModelInfo()">Retry Connection</button>
+      </div>
+
+      <!-- SUCCESS RESULT -->
+      <ng-container *ngIf="result && !loading">
+
+        <!-- Verdict banner -->
+        <div class="verdict-banner" [class.verdict-success]="result.prediction.will_succeed"
+                                    [class.verdict-fail]="!result.prediction.will_succeed">
+          <div class="verdict-emoji">{{ result.prediction.will_succeed ? '✅' : '❌' }}</div>
+          <div class="verdict-text">
+            <h2>{{ result.prediction.will_succeed ? 'PROJECT WILL SUCCEED' : 'PROJECT WILL FAIL' }}</h2>
+            <p>{{ result.prediction.will_succeed ? 'Strong indicators of success detected' : 'High risk of failure detected' }}</p>
+          </div>
+        </div>
+
+        <!-- Probability gauge -->
+        <div class="gauge-section">
+          <div class="gauge-label">
+            <span>Success Probability</span>
+            <strong class="gauge-pct">{{ result.prediction.success_probability }}%</strong>
+          </div>
+          <div class="gauge-track">
+            <div class="gauge-fill"
+                 [style.width.%]="result.prediction.success_probability"
+                 [class.fill-high]="result.prediction.success_probability >= 60"
+                 [class.fill-mid]="result.prediction.success_probability >= 40 && result.prediction.success_probability < 60"
+                 [class.fill-low]="result.prediction.success_probability < 40">
+            </div>
+          </div>
+
+          <div class="gauge-label" style="margin-top:12px">
+            <span>Failure Probability</span>
+            <strong class="gauge-pct">{{ result.prediction.failure_probability }}%</strong>
+          </div>
+          <div class="gauge-track">
+            <div class="gauge-fill fill-fail"
+                 [style.width.%]="result.prediction.failure_probability">
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics row -->
+        <div class="metrics-row">
+          <div class="metric-chip">
+            <span class="chip-icon">🎲</span>
+            <div>
+              <div class="chip-label">Confidence</div>
+              <div class="chip-value" [style.color]="confidenceColor">
+                {{ result.prediction.confidence_level }}
+              </div>
+            </div>
+          </div>
+          <div class="metric-chip">
+            <span class="chip-icon">⚠️</span>
+            <div>
+              <div class="chip-label">Risk Level</div>
+              <div class="chip-value" [style.color]="riskColor">
+                {{ result.prediction.risk_level }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recommendation -->
+        <div class="recommendation">
+          <div class="rec-title">💡 AI Recommendation</div>
+          <p>{{ result.recommendation }}</p>
+        </div>
+
+        <!-- New prediction button -->
+        <button class="btn-new" (click)="reset()">🔄 New Prediction</button>
+
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM: HOW IT WORKS ── -->
+  <div class="how-it-works">
+    <h2>⚙️ How It Works</h2>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-icon">📝</div>
+        <h4>Input Parameters</h4>
+        <p>Enter your project details including budget, team size, complexity and more.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-icon">🤖</div>
+        <h4>ML Analysis</h4>
+        <p>XGBoost model analyses 10 features trained on 1000+ historical projects.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-icon">📊</div>
+        <h4>Risk Assessment</h4>
+        <p>SMOTE-balanced training ensures accurate predictions for both outcomes.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-icon">💡</div>
+        <h4>Recommendation</h4>
+        <p>Get a clear recommendation with confidence level and risk assessment.</p>
+      </div>
+    </div>
+  </div>
+
+</div>

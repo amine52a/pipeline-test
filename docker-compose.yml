@@ -1,0 +1,271 @@
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════
+#  MATCHY PLATFORM — Full Stack Docker Compose
+#  Includes: All microservices + MySQL + Prometheus + Grafana
+# ═══════════════════════════════════════════════════════════════
+
+networks:
+  matchy-net:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  prometheus-data:
+  grafana-data:
+  sonarqube-data:
+  sonarqube-logs:
+  sonarqube-extensions:
+  sonarqube-db-data:
+
+services:
+
+  # ─────────────────────────────────────────
+  # DATABASE
+  # ─────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: matchy-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: matchy_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./database/matchy_schema.sql:/docker-entrypoint-initdb.d/01-matchy_schema.sql
+      - ./database/notifications_migration.sql:/docker-entrypoint-initdb.d/02-notifications.sql
+      - ./database/payments_migration.sql:/docker-entrypoint-initdb.d/03-payments.sql
+      - ./database/users_migration.sql:/docker-entrypoint-initdb.d/04-users.sql
+      - ./database/workspace_migration.sql:/docker-entrypoint-initdb.d/05-workspace.sql
+      - ./database/advanced_features_migration.sql:/docker-entrypoint-initdb.d/06-advanced.sql
+    networks:
+      - matchy-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ─────────────────────────────────────────
+  # EUREKA SERVER
+  # ─────────────────────────────────────────
+  eureka-server:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    container_name: matchy-eureka
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    networks:
+      - matchy-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # ─────────────────────────────────────────
+  # API GATEWAY
+  # ─────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: matchy-gateway
+    restart: unless-stopped
+    ports:
+      - "8091:8091"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  # ─────────────────────────────────────────
+  # BACKEND SERVICE (Node.js)
+  # ─────────────────────────────────────────
+  backend-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: matchy-backend
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: matchy_db
+      PORT: 9090
+      JWT_SECRET: dev-shared-secret-change-me-please-please-please-32bytes
+      EUREKA_HOST: eureka-server
+      EUREKA_PORT: 8761
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  # ─────────────────────────────────────────
+  # EVENT SERVICE (Java)
+  # ─────────────────────────────────────────
+  event-service:
+    build:
+      context: ./services/event-service
+      dockerfile: Dockerfile
+    container_name: matchy-event
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/matchy_db?createDatabaseIfNotExist=false&useSSL=false&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: dev-shared-secret-change-me-please-please-please-32bytes
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  # ─────────────────────────────────────────
+  # CONTENT SERVICE (Java)
+  # ─────────────────────────────────────────
+  content-service:
+    build:
+      context: ./services/content-service
+      dockerfile: Dockerfile
+    container_name: matchy-content
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/content_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  # ─────────────────────────────────────────
+  # SUBSCRIPTION SERVICE (Java)
+  # ─────────────────────────────────────────
+  subscription-service:
+    build:
+      context: ./services/subscription-service
+      dockerfile: Dockerfile
+    container_name: matchy-subscription
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/matchy_sub?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      MATCHY_BACKEND_URL: http://backend-service:9090/api
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  # ─────────────────────────────────────────
+  # ML PREDICTION SERVICE (Python)
+  # ─────────────────────────────────────────
+  ml-prediction-service:
+    build:
+      context: ./services/ml-prediction-service
+      dockerfile: Dockerfile
+    container_name: matchy-ml
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      PORT: 8085
+      EUREKA_SERVER: http://eureka-server:8761/eureka
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  # ─────────────────────────────────────────
+  # ANGULAR FRONTEND
+  # ─────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: matchy-frontend
+    restart: unless-stopped
+    ports:
+      - "4200:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - matchy-net
+
+  # ─────────────────────────────────────────
+  # PROMETHEUS
+  # ─────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: matchy-prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./devops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./devops/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    networks:
+      - matchy-net
+
+  # ─────────────────────────────────────────
+  # GRAFANA
+  # ─────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: matchy-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: matchy123
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./devops/grafana/provisioning:/etc/grafana/provisioning
+      - ./devops/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - matchy-net

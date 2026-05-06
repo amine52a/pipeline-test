@@ -1,0 +1,381 @@
+{
+  "id": null,
+  "uid": "matchy-overview",
+  "title": "🚀 Matchy Platform Overview",
+  "tags": ["matchy", "microservices", "overview"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(up, service)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "label": "Service"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Services UP / DOWN",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "up", "legendFormat": "{{service}}", "refId": "A" }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "color": "red",   "text": "DOWN", "index": 0 },
+                "1": { "color": "green", "text": "UP",   "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",   "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Total Services Running",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 4 },
+      "targets": [
+        { "expr": "count(up == 1)", "legendFormat": "Running", "refId": "A" }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Total HTTP Requests/s",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 4 },
+      "targets": [
+        { "expr": "sum(rate(http_requests_total[1m]))", "legendFormat": "req/s", "refId": "A" }
+      ],
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" }, "unit": "reqps" }
+      }
+    },
+    {
+      "id": 4,
+      "title": "ML Predictions Total",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 4 },
+      "targets": [
+        { "expr": "ml_predictions_total", "legendFormat": "Predictions", "refId": "A" }
+      ],
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "purple" }, "unit": "short" }
+      }
+    },
+    {
+      "id": 5,
+      "title": "ML Model F1 Score",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 4 },
+      "targets": [
+        { "expr": "ml_model_f1_score * 100", "legendFormat": "F1 %", "refId": "A" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": false },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "green",  "value": 80 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Error Rate",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 4 },
+      "targets": [
+        { "expr": "sum(rate(http_errors_total[5m]))", "legendFormat": "errors/s", "refId": "A" }
+      ],
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "reqps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 0.1 },
+              { "color": "red",    "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Backend Uptime",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 4 },
+      "targets": [
+        { "expr": "process_uptime_seconds{service='backend-service'}", "legendFormat": "Uptime", "refId": "A" }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "green" }, "unit": "s" }
+      }
+    },
+    {
+      "id": 8,
+      "title": "HTTP Request Rate per Service (req/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count[1m])",
+          "legendFormat": "{{service}} - {{uri}}",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(http_requests_total[1m])",
+          "legendFormat": "{{service}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "reqps"
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+    {
+      "id": 9,
+      "title": "HTTP 5xx Error Rate per Service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{status=~\"5..\"}[1m])",
+          "legendFormat": "{{service}} 5xx",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(http_errors_total[1m])",
+          "legendFormat": "{{service}} errors",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "custom": { "lineWidth": 2, "fillOpacity": 20 },
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "JVM Heap Memory (MB) — Java Services",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{area=\"heap\"} / 1024 / 1024",
+          "legendFormat": "{{service}} heap used",
+          "refId": "A"
+        },
+        {
+          "expr": "jvm_memory_max_bytes{area=\"heap\"} / 1024 / 1024",
+          "legendFormat": "{{service}} heap max",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "decmbytes"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Node.js Heap Memory (MB)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "process_heap_bytes / 1024 / 1024",
+          "legendFormat": "{{service}} heap",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "orange" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "decmbytes"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "CPU Usage % per Service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "process_cpu_usage * 100",
+          "legendFormat": "{{service}} CPU",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "percent",
+          "max": 100
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "Response Time P95 (ms) — Java Services",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, service)) * 1000",
+          "legendFormat": "{{service}} p95",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 },
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "ML Predictions Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "targets": [
+        {
+          "expr": "rate(ml_predictions_total[5m])",
+          "legendFormat": "Predictions/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "purple" },
+          "custom": { "lineWidth": 2, "fillOpacity": 20 },
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "JVM GC Pause Time (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "targets": [
+        {
+          "expr": "rate(jvm_gc_pause_seconds_sum[1m]) * 1000",
+          "legendFormat": "{{service}} GC pause",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 },
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "Active Threads — Java Services",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "targets": [
+        {
+          "expr": "jvm_threads_live_threads",
+          "legendFormat": "{{service}} live threads",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 17,
+      "title": "HTTP Request Duration Heatmap",
+      "type": "heatmap",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_bucket[5m])) by (le)",
+          "legendFormat": "{{le}}",
+          "refId": "A",
+          "format": "heatmap"
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "color": { "scheme": "Oranges", "mode": "scheme" }
+      }
+    }
+  ]
+}

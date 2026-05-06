@@ -27,6 +27,7 @@ import { ContentManagementComponent } from './content-management/content-managem
 import { AssessmentManagementComponent } from './assessment-management/assessment-management.component';
 import { CertificationManagementComponent } from './certification-management/certification-management.component';
 import { PromoCodesComponent } from './promo-codes/promo-codes.component';
+import { MlPredictionComponent } from './ml-prediction/ml-prediction.component';
 
 const routes: Routes = [
   {
@@ -62,7 +63,8 @@ const routes: Routes = [
       { path: 'subscription-plan-comparison', component: SubscriptionPlanComparisonComponent },
       { path: 'subscription-pay', component: BoSubscriptionPayComponent },
       { path: 'subscriptions/dashboard', component: BoSubscriptionDashboardComponent },
-      { path: 'promo-codes', component: PromoCodesComponent }
+      { path: 'promo-codes', component: PromoCodesComponent },
+      { path: 'ml-prediction', component: MlPredictionComponent }
     ]
   }
 ];

@@ -1,0 +1,120 @@
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════
+#  MATCHY — Monitoring Stack
+#  Run: docker compose -f docker-compose.monitoring.yml up -d
+#  Prometheus : http://localhost:9091
+#  Grafana    : http://localhost:3000  (admin / matchy123)
+#  SonarQube  : http://localhost:9000  (admin / admin)
+# ═══════════════════════════════════════════════════════════════
+
+networks:
+  monitoring-net:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  sonarqube-data:
+  sonarqube-logs:
+  sonarqube-extensions:
+  sonarqube-db-data:
+
+services:
+
+  # ─────────────────────────────────────────
+  # PROMETHEUS
+  # ─────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: matchy-prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./devops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./devops/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - monitoring-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ─────────────────────────────────────────
+  # GRAFANA
+  # ─────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: matchy-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: matchy123
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_DOMAIN: localhost
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./devops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./devops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring-net
+
+  # ─────────────────────────────────────────
+  # SONARQUBE DATABASE (PostgreSQL)
+  # ─────────────────────────────────────────
+  sonarqube-db:
+    image: postgres:15-alpine
+    container_name: matchy-sonar-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonarqube
+    volumes:
+      - sonarqube-db-data:/var/lib/postgresql/data
+    networks:
+      - monitoring-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # SONARQUBE
+  # ─────────────────────────────────────────
+  sonarqube:
+    image: sonarqube:10.4-community
+    container_name: matchy-sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonarqube
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-logs:/opt/sonarqube/logs
+      - sonarqube-extensions:/opt/sonarqube/extensions
+    depends_on:
+      sonarqube-db:
+        condition: service_healthy
+    networks:
+      - monitoring-net
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536

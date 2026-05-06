@@ -1,0 +1,68 @@
+# Jenkins Configuration as Code (JCasC)
+# Place this file in Jenkins home or set CASC_JENKINS_CONFIG env var
+
+jenkins:
+  systemMessage: "Matchy Platform CI/CD — Jenkins"
+  numExecutors: 4
+  mode: NORMAL
+  scmCheckoutRetryCount: 2
+
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "matchy-jenkins-2024"
+
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: "DOCKER_HUB_USERNAME"
+            value: "matchyplatform"
+          - key: "SONAR_HOST_URL"
+            value: "http://sonarqube:9000"
+
+tool:
+  maven:
+    installations:
+      - name: "Maven 3.9"
+        home: "/usr/share/maven"
+  nodejs:
+    installations:
+      - name: "Node 20"
+        nodeJSInstallId: "20.x"
+  git:
+    installations:
+      - name: "Default"
+        home: "git"
+
+unclassified:
+  sonarGlobalConfiguration:
+    buildWrapperEnabled: true
+    installations:
+      - name: "SonarQube"
+        serverUrl: "http://sonarqube:9000"
+        credentialsId: "sonarqube-token"
+
+  gitHubPluginConfig:
+    hookUrl: "http://jenkins:8080/github-webhook/"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "dockerhub-credentials"
+              username: "matchyplatform"
+              password: "YOUR_DOCKERHUB_PASSWORD"
+              description: "Docker Hub credentials"
+          - string:
+              scope: GLOBAL
+              id: "sonarqube-token"
+              secret: "YOUR_SONARQUBE_TOKEN"
+              description: "SonarQube authentication token"

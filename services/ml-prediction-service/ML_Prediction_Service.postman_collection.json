@@ -1,0 +1,195 @@
+{
+  "info": {
+    "name": "ML Prediction Service - Matchy",
+    "_postman_id": "ml-prediction-service-001",
+    "description": "API collection for testing the ML Project Feasibility Prediction Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8085/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8085",
+          "path": ["health"]
+        },
+        "description": "Check if the ML service is running and healthy"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Model Information",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8085/api/ml/model-info",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8085",
+          "path": ["api", "ml", "model-info"]
+        },
+        "description": "Get information about the trained ML model (name, accuracy, features, etc.)"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Required Features",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8085/api/ml/features",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8085",
+          "path": ["api", "ml", "features"]
+        },
+        "description": "Get list of features required for making predictions"
+      },
+      "response": []
+    },
+    {
+      "name": "Predict Project Success - High Success",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"budget\": 100000,\n  \"team_size\": 10,\n  \"duration_months\": 6,\n  \"complexity\": \"low\",\n  \"client_experience\": \"high\",\n  \"technology_stack\": \"modern\",\n  \"team_experience_years\": 10,\n  \"requirements_clarity\": \"clear\",\n  \"stakeholder_involvement\": \"high\",\n  \"risk_factors\": 2\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8085/api/ml/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8085",
+          "path": ["api", "ml", "predict"]
+        },
+        "description": "Predict a project with high success probability"
+      },
+      "response": []
+    },
+    {
+      "name": "Predict Project Success - Medium Risk",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"budget\": 50000,\n  \"team_size\": 5,\n  \"duration_months\": 8,\n  \"complexity\": \"medium\",\n  \"client_experience\": \"medium\",\n  \"technology_stack\": \"mixed\",\n  \"team_experience_years\": 5,\n  \"requirements_clarity\": \"moderate\",\n  \"stakeholder_involvement\": \"medium\",\n  \"risk_factors\": 5\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8085/api/ml/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8085",
+          "path": ["api", "ml", "predict"]
+        },
+        "description": "Predict a project with medium risk"
+      },
+      "response": []
+    },
+    {
+      "name": "Predict Project Success - High Risk",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"budget\": 20000,\n  \"team_size\": 2,\n  \"duration_months\": 12,\n  \"complexity\": \"high\",\n  \"client_experience\": \"low\",\n  \"technology_stack\": \"legacy\",\n  \"team_experience_years\": 2,\n  \"requirements_clarity\": \"unclear\",\n  \"stakeholder_involvement\": \"low\",\n  \"risk_factors\": 8\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8085/api/ml/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8085",
+          "path": ["api", "ml", "predict"]
+        },
+        "description": "Predict a project with high risk of failure"
+      },
+      "response": []
+    },
+    {
+      "name": "Batch Predict Multiple Projects",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"projects\": [\n    {\n      \"budget\": 100000,\n      \"team_size\": 10,\n      \"duration_months\": 6,\n      \"complexity\": \"low\",\n      \"client_experience\": \"high\",\n      \"technology_stack\": \"modern\",\n      \"team_experience_years\": 10,\n      \"requirements_clarity\": \"clear\",\n      \"stakeholder_involvement\": \"high\",\n      \"risk_factors\": 2\n    },\n    {\n      \"budget\": 30000,\n      \"team_size\": 3,\n      \"duration_months\": 10,\n      \"complexity\": \"high\",\n      \"client_experience\": \"low\",\n      \"technology_stack\": \"legacy\",\n      \"team_experience_years\": 3,\n      \"requirements_clarity\": \"unclear\",\n      \"stakeholder_involvement\": \"low\",\n      \"risk_factors\": 7\n    },\n    {\n      \"budget\": 60000,\n      \"team_size\": 6,\n      \"duration_months\": 7,\n      \"complexity\": \"medium\",\n      \"client_experience\": \"medium\",\n      \"technology_stack\": \"modern\",\n      \"team_experience_years\": 6,\n      \"requirements_clarity\": \"clear\",\n      \"stakeholder_involvement\": \"high\",\n      \"risk_factors\": 4\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8085/api/ml/batch-predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8085",
+          "path": ["api", "ml", "batch-predict"]
+        },
+        "description": "Predict multiple projects at once"
+      },
+      "response": []
+    },
+    {
+      "name": "Predict via API Gateway",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"budget\": 75000,\n  \"team_size\": 7,\n  \"duration_months\": 6,\n  \"complexity\": \"medium\",\n  \"client_experience\": \"high\",\n  \"technology_stack\": \"modern\",\n  \"team_experience_years\": 8,\n  \"requirements_clarity\": \"clear\",\n  \"stakeholder_involvement\": \"high\",\n  \"risk_factors\": 3\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8091/ml-prediction-service/api/ml/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8091",
+          "path": ["ml-prediction-service", "api", "ml", "predict"]
+        },
+        "description": "Make prediction through the API Gateway (requires Eureka registration)"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8085",
+      "type": "string"
+    },
+    {
+      "key": "gateway_url",
+      "value": "http://localhost:8091",
+      "type": "string"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════
+#  MATCHY — Jenkins CI/CD Stack
+#  Run: docker compose -f docker-compose.jenkins.yml up -d
+#  Jenkins : http://localhost:8080
+# ═══════════════════════════════════════════════════════════════
+
+networks:
+  jenkins-net:
+    driver: bridge
+
+volumes:
+  jenkins-data:
+  jenkins-docker-certs:
+
+services:
+
+  # ─────────────────────────────────────────
+  # DOCKER-IN-DOCKER (for Jenkins to build images)
+  # ─────────────────────────────────────────
+  docker-dind:
+    image: docker:dind
+    container_name: matchy-docker-dind
+    restart: unless-stopped
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - jenkins-docker-certs:/certs/client
+      - jenkins-data:/var/jenkins_home
+    ports:
+      - "2376:2376"
+    networks:
+      jenkins-net:
+        aliases:
+          - docker
+
+  # ─────────────────────────────────────────
+  # JENKINS
+  # ─────────────────────────────────────────
+  jenkins:
+    build:
+      context: ./devops/jenkins
+      dockerfile: Dockerfile.jenkins
+    container_name: matchy-jenkins
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment:
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_CERT_PATH: /certs/client
+      DOCKER_TLS_VERIFY: "1"
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+      CASC_JENKINS_CONFIG: /var/jenkins_home/casc_configs
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - jenkins-docker-certs:/certs/client:ro
+      - ./devops/jenkins/jenkins.yaml:/var/jenkins_home/casc_configs/jenkins.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - docker-dind
+    networks:
+      - jenkins-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

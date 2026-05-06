@@ -1,0 +1,68 @@
+groups:
+  - name: matchy-alerts
+    rules:
+
+      # ── Service Down ──
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is DOWN"
+          description: "{{ $labels.instance }} has been down for more than 1 minute."
+
+      # ── High CPU Usage ──
+      - alert: HighCPUUsage
+        expr: process_cpu_usage > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for 2 minutes on {{ $labels.instance }}."
+
+      # ── High Memory Usage ──
+      - alert: HighMemoryUsage
+        expr: (jvm_memory_used_bytes / jvm_memory_max_bytes) > 0.85
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM memory on {{ $labels.instance }}"
+          description: "JVM memory usage is above 85% on {{ $labels.instance }}."
+
+      # ── High HTTP Error Rate ──
+      - alert: HighErrorRate
+        expr: |
+          rate(http_server_requests_seconds_count{status=~"5.."}[5m])
+          / rate(http_server_requests_seconds_count[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate on {{ $labels.instance }}"
+          description: "More than 5% of requests are returning 5xx errors."
+
+      # ── Slow Response Time ──
+      - alert: SlowResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_server_requests_seconds_bucket[5m])
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow responses on {{ $labels.instance }}"
+          description: "95th percentile response time is above 2 seconds."
+
+      # ── MySQL Down ──
+      - alert: MySQLDown
+        expr: mysql_up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "MySQL is DOWN"
+          description: "MySQL database is not reachable."

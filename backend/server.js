@@ -643,6 +643,65 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ============================================
+// PROMETHEUS METRICS ENDPOINT
+// ============================================
+
+// Simple in-process counters
+const metrics = {
+  http_requests_total: 0,
+  http_errors_total: 0,
+  http_request_duration_sum: 0,
+};
+
+// Middleware to track metrics
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    metrics.http_requests_total++;
+    metrics.http_request_duration_sum += (Date.now() - start);
+    if (res.statusCode >= 500) metrics.http_errors_total++;
+  });
+  next();
+});
+
+app.get('/metrics', (_req, res) => {
+  const uptime = process.uptime();
+  const mem = process.memoryUsage();
+  const avgDuration = metrics.http_requests_total > 0
+    ? (metrics.http_request_duration_sum / metrics.http_requests_total / 1000).toFixed(4)
+    : 0;
+
+  const output = [
+    '# HELP process_uptime_seconds Node.js process uptime',
+    '# TYPE process_uptime_seconds gauge',
+    `process_uptime_seconds ${uptime.toFixed(2)}`,
+    '',
+    '# HELP process_heap_bytes Node.js heap memory used',
+    '# TYPE process_heap_bytes gauge',
+    `process_heap_bytes ${mem.heapUsed}`,
+    '',
+    '# HELP http_requests_total Total HTTP requests',
+    '# TYPE http_requests_total counter',
+    `http_requests_total{service="backend-service"} ${metrics.http_requests_total}`,
+    '',
+    '# HELP http_errors_total Total HTTP 5xx errors',
+    '# TYPE http_errors_total counter',
+    `http_errors_total{service="backend-service"} ${metrics.http_errors_total}`,
+    '',
+    '# HELP http_request_duration_avg_seconds Average request duration',
+    '# TYPE http_request_duration_avg_seconds gauge',
+    `http_request_duration_avg_seconds{service="backend-service"} ${avgDuration}`,
+    '',
+    '# HELP nodejs_version_info Node.js version info',
+    '# TYPE nodejs_version_info gauge',
+    `nodejs_version_info{version="${process.version}"} 1`,
+  ].join('\n');
+
+  res.set('Content-Type', 'text/plain; version=0.0.4');
+  res.send(output);
+});
+
+// ============================================
 // START SERVER
 // ============================================
 

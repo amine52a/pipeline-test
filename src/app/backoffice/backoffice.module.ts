@@ -50,6 +50,7 @@ import { ContentManagementComponent } from './content-management/content-managem
 import { AssessmentManagementComponent } from './assessment-management/assessment-management.component';
 import { CertificationManagementComponent } from './certification-management/certification-management.component';
 import { PromoCodesComponent } from './promo-codes/promo-codes.component';
+import { MlPredictionComponent } from './ml-prediction/ml-prediction.component';
 
 @NgModule({
   declarations: [
@@ -87,7 +88,8 @@ import { PromoCodesComponent } from './promo-codes/promo-codes.component';
     ContentManagementComponent,
     AssessmentManagementComponent,
     CertificationManagementComponent,
-    PromoCodesComponent
+    PromoCodesComponent,
+    MlPredictionComponent
   ],
   imports: [
     CommonModule,
