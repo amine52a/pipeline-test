@@ -1285,3 +1285,7 @@ app.post('/api/freelancer-profiles', async (req, res) => {
 });
 
 console.log('✅ Advanced features loaded: AI Matching, Payments, Advanced Search');
+
+
+// Export app for Vercel serverless
+export default app;
