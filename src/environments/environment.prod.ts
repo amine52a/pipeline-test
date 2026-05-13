@@ -1,12 +1,13 @@
 export const environment = {
   production: true,
-  apiUrl: 'http://localhost:8091/api',
-  paymentsAdminBaseUrl: 'http://localhost:8091/api',
-  mlApiUrl: 'https://your-ml-gateway-url.com',
+  apiUrl: 'https://pipeline-test1.onrender.com/api',
+  paymentsAdminBaseUrl: 'https://pipeline-test1.onrender.com/api',
+  // ML services not deployed yet — pointing to backend as fallback
+  mlApiUrl: 'https://pipeline-test1.onrender.com/api/ml',
   mlServices: {
-    matching: 'https://your-matching-service.com',
-    prix: 'https://your-prix-service.com',
-    profil: 'https://your-profil-service.com',
-    feasibility: 'https://your-feasibility-service.com'
+    matching: 'https://pipeline-test1.onrender.com/api/ml/matching',
+    prix: 'https://pipeline-test1.onrender.com/api/ml/prix',
+    profil: 'https://pipeline-test1.onrender.com/api/ml/profil',
+    feasibility: 'https://pipeline-test1.onrender.com/api/ml/feasibility'
   }
 };
