@@ -1,10 +1,10 @@
 services:
 
-  # ─── ANGULAR FRONTEND (Static Site - FREE) ───────────────────────────────────
-  # Pre-built dist is committed to git — no build needed on Render
+  # ─── ANGULAR FRONTEND (Static Site - pre-built, no build on Render) ──────────
   - type: web
     name: matchy-frontend
     runtime: static
+    buildCommand: echo "Using pre-built dist"
     staticPublishPath: dist/matchy-angular/browser
     pullRequestPreviewsEnabled: false
     routes:
@@ -12,7 +12,7 @@ services:
         source: /*
         destination: /index.html
 
-  # ─── NODE.JS BACKEND (Web Service - FREE) ────────────────────────────────────
+  # ─── NODE.JS BACKEND (Web Service) ───────────────────────────────────────────
   - type: web
     name: matchy-backend
     runtime: node
