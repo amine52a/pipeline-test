@@ -1,0 +1,119 @@
+<div class="ml-container">
+  <div class="ml-header">
+    <h1>👤 Freelancer Profile Analysis</h1>
+    <p>Analyze and optimize freelancer profiles using machine learning</p>
+  </div>
+
+  <div class="ml-card">
+    <div class="presets">
+      <p><strong>Quick Presets:</strong></p>
+      <button (click)="usePreset('beginner')" class="preset-btn">Beginner</button>
+      <button (click)="usePreset('intermediate')" class="preset-btn">Intermediate</button>
+      <button (click)="usePreset('expert')" class="preset-btn">Expert</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Job Title</label>
+        <select [(ngModel)]="jobTitle" class="form-control">
+          <option *ngFor="let t of jobTitles" [value]="t">{{ t }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Experience Level</label>
+        <select [(ngModel)]="experienceLevel" class="form-control">
+          <option *ngFor="let lvl of experienceLevels" [value]="lvl">{{ lvl }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Industry</label>
+        <select [(ngModel)]="industry" class="form-control">
+          <option *ngFor="let ind of industries" [value]="ind">{{ ind }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Job Type</label>
+        <select [(ngModel)]="jobType" class="form-control">
+          <option *ngFor="let jt of jobTypes" [value]="jt">{{ jt }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Years of Experience</label>
+        <input type="number" [(ngModel)]="yearsExperience" min="0" max="50" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Number of Skills</label>
+        <input type="number" [(ngModel)]="skillsCount" min="1" max="100" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Profile Completeness (%)</label>
+        <input type="number" [(ngModel)]="profileCompletenessScore" min="0" max="100" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Has Certifications</label>
+        <select [(ngModel)]="hasCertifications" class="form-control">
+          <option [ngValue]="1">Yes</option>
+          <option [ngValue]="0">No</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Has Obsolete Skills</label>
+        <select [(ngModel)]="hasObsoleteSkill" class="form-control">
+          <option [ngValue]="0">No</option>
+          <option [ngValue]="1">Yes</option>
+        </select>
+      </div>
+    </div>
+
+    <button (click)="analyzeProfile()" [disabled]="loading" class="btn-primary">
+      <span *ngIf="!loading">🔍 Analyze Profile</span>
+      <span *ngIf="loading">⏳ Analyzing...</span>
+    </button>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">❌ {{ error }}</div>
+
+  <div *ngIf="result" class="result-card">
+    <h3>Profile Analysis Result</h3>
+    <div class="result-content">
+      <div class="score-display" [ngClass]="getOptimizationClass()">
+        <div class="score-value">{{ (result.optimization.confidence * 100).toFixed(0) }}%</div>
+        <div class="score-label">Confidence</div>
+        <div class="score-category">{{ result.optimization.label }}</div>
+      </div>
+      <div class="result-details">
+        <div class="detail-item">
+          <span class="label">Profile Status:</span>
+          <span class="value">{{ result.optimization.label }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Cluster Group:</span>
+          <span class="value">{{ result.clustering.cluster_label }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Optimized Probability:</span>
+          <span class="value">{{ (result.optimization.proba_optimized * 100).toFixed(1) }}%</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Not Optimized Probability:</span>
+          <span class="value">{{ (result.optimization.proba_not_optimized * 100).toFixed(1) }}%</span>
+        </div>
+      </div>
+    </div>
+    <div class="recommendations">
+      <h4>📋 Summary</h4>
+      <p>{{ result.summary }}</p>
+      <h4>💡 Recommendation</h4>
+      <p>{{ result.clustering.recommendation }}</p>
+    </div>
+  </div>
+</div>

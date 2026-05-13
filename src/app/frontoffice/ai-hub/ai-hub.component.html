@@ -1,0 +1,110 @@
+<div class="ai-hub">
+
+  <!-- Hero Section -->
+  <div class="hub-hero">
+    <div class="hero-bg">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        AI-Powered Platform
+      </div>
+      <h1 class="hero-title">
+        Intelligence Hub
+        <span class="title-gradient">for Freelancers</span>
+      </h1>
+      <p class="hero-subtitle">
+        Four powerful AI tools designed to supercharge your freelance career.
+        From smart matching to risk analysis — all in one place.
+      </p>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-value">4</span>
+          <span class="stat-label">AI Models</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">ML</span>
+          <span class="stat-label">Powered</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">Real-time</span>
+          <span class="stat-label">Predictions</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cards Grid -->
+  <div class="hub-grid-section">
+    <div class="section-header">
+      <h2>Choose Your AI Tool</h2>
+      <p>Select the intelligence you need right now</p>
+    </div>
+
+    <div class="cards-grid">
+      <div
+        *ngFor="let tool of tools"
+        class="ai-card"
+        [class.hovered]="hoveredCard === tool.id"
+        (mouseenter)="hoveredCard = tool.id"
+        (mouseleave)="hoveredCard = null"
+        (click)="navigate(tool.route)"
+      >
+        <!-- Card Glow -->
+        <div class="card-glow" [style.background]="tool.gradient"></div>
+
+        <!-- Badge -->
+        <div *ngIf="tool.badge" class="card-badge">{{ tool.badge }}</div>
+
+        <!-- Icon -->
+        <div class="card-icon-wrapper">
+          <div class="card-icon-bg" [style.background]="tool.gradient"></div>
+          <span class="card-icon">{{ tool.icon }}</span>
+        </div>
+
+        <!-- Content -->
+        <div class="card-content">
+          <div class="card-subtitle">{{ tool.subtitle }}</div>
+          <h3 class="card-title">{{ tool.title }}</h3>
+          <p class="card-description">{{ tool.description }}</p>
+
+          <!-- Tags -->
+          <div class="card-tags">
+            <span *ngFor="let tag of tool.tags" class="tag">{{ tag }}</span>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="card-cta">
+          <button class="cta-btn" [style.background]="tool.gradient">
+            Launch Tool
+            <span class="cta-arrow">→</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Banner -->
+  <div class="hub-banner">
+    <div class="banner-content">
+      <div class="banner-icon">🚀</div>
+      <div class="banner-text">
+        <h3>All models run locally</h3>
+        <p>Fast, private, and always available — no data leaves your environment.</p>
+      </div>
+      <div class="banner-tags">
+        <span class="banner-tag">FastAPI</span>
+        <span class="banner-tag">Python ML</span>
+        <span class="banner-tag">scikit-learn</span>
+        <span class="banner-tag">XGBoost</span>
+      </div>
+    </div>
+  </div>
+
+</div>

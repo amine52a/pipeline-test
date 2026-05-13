@@ -1,0 +1,29 @@
+<div class="ml-testing-container">
+  <div class="ml-header">
+    <h1>🤖 ML Services Testing Dashboard</h1>
+    <p>Test all Machine Learning services from the interface</p>
+  </div>
+
+  <nav class="ml-nav">
+    <a routerLink="matching" routerLinkActive="active" class="nav-item">
+      <span class="icon">🎯</span>
+      <span class="label">Matching</span>
+    </a>
+    <a routerLink="prix" routerLinkActive="active" class="nav-item">
+      <span class="icon">💰</span>
+      <span class="label">Prix</span>
+    </a>
+    <a routerLink="profil" routerLinkActive="active" class="nav-item">
+      <span class="icon">👤</span>
+      <span class="label">Profil</span>
+    </a>
+    <a routerLink="feasibility" routerLinkActive="active" class="nav-item">
+      <span class="icon">📊</span>
+      <span class="label">Feasibility</span>
+    </a>
+  </nav>
+
+  <div class="ml-content">
+    <router-outlet></router-outlet>
+  </div>
+</div>

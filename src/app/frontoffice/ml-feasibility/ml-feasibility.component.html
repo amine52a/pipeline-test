@@ -1,0 +1,114 @@
+<div class="ml-container">
+  <div class="ml-header">
+    <h1>🎯 Project Feasibility Analysis</h1>
+    <p>Predict project success probability using AI-powered analysis</p>
+  </div>
+
+  <div class="ml-card">
+    <div class="presets">
+      <p><strong>Quick Presets:</strong></p>
+      <button (click)="usePreset('small')" class="preset-btn">Small Project</button>
+      <button (click)="usePreset('medium')" class="preset-btn">Medium Project</button>
+      <button (click)="usePreset('large')" class="preset-btn">Large Project</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Budget ($)</label>
+        <input type="number" [(ngModel)]="budget" min="1" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Team Size</label>
+        <input type="number" [(ngModel)]="teamSize" min="1" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Duration (months)</label>
+        <input type="number" [(ngModel)]="durationMonths" min="1" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Industry</label>
+        <input type="text" [(ngModel)]="industry" class="form-control" placeholder="e.g. Technology" />
+      </div>
+      <div class="form-group">
+        <label>Project Type</label>
+        <input type="text" [(ngModel)]="projectType" class="form-control" placeholder="e.g. Web Application" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Client Experience</label>
+        <select [(ngModel)]="clientExperience" class="form-control">
+          <option *ngFor="let lvl of clientExperienceLevels" [value]="lvl">{{ lvl }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Team Experience (years)</label>
+        <input type="number" [(ngModel)]="teamExperienceYears" min="0" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Previous Projects</label>
+        <input type="number" [(ngModel)]="previousProjects" min="0" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Risk Score (1-10)</label>
+        <input type="number" [(ngModel)]="riskScore" min="1" max="10" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Technology Stack</label>
+      <input type="text" [(ngModel)]="technologyStack" class="form-control" placeholder="e.g. React, Node.js, MongoDB" />
+    </div>
+
+    <button (click)="analyzeFeasibility()" [disabled]="loading" class="btn-primary">
+      <span *ngIf="!loading">🔍 Analyze Feasibility</span>
+      <span *ngIf="loading">⏳ Analyzing...</span>
+    </button>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">❌ {{ error }}</div>
+
+  <div *ngIf="result" class="result-card">
+    <h3>Feasibility Analysis Result</h3>
+    <div class="result-content">
+      <div class="feasibility-display" [ngClass]="getResultClass()">
+        <div class="feasibility-value">{{ result.prediction.success_probability.toFixed(0) }}%</div>
+        <div class="feasibility-label">Success Probability</div>
+        <div class="feasibility-status">{{ getResultLabel() }}</div>
+      </div>
+      <div class="result-details">
+        <div class="detail-item">
+          <span class="label">Prediction:</span>
+          <span class="value">{{ result.prediction.label }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Risk Level:</span>
+          <span class="value">{{ result.prediction.risk_level }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Confidence:</span>
+          <span class="value">{{ result.prediction.confidence_level }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Failure Probability:</span>
+          <span class="value">{{ result.prediction.failure_probability.toFixed(1) }}%</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Model Used:</span>
+          <span class="value">{{ result.model_used }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="recommendations">
+      <h4>💡 Recommendation</h4>
+      <p>{{ result.recommendation }}</p>
+    </div>
+  </div>
+</div>

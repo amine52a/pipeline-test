@@ -1,0 +1,71 @@
+<div class="ml-container">
+  <div class="ml-header">
+    <h1>🎯 Freelancer Matching Service</h1>
+    <p>Find the best matching freelancers based on project description</p>
+  </div>
+
+  <div class="ml-card">
+    <div class="form-group">
+      <label for="description">Project Description</label>
+      <textarea
+        id="description"
+        [(ngModel)]="description"
+        placeholder="Describe your project requirements, skills needed, technologies..."
+        rows="5"
+        class="form-control"
+      ></textarea>
+    </div>
+
+    <div class="examples">
+      <p><strong>Try these examples:</strong></p>
+      <div class="example-chips">
+        <button
+          *ngFor="let example of exampleDescriptions"
+          (click)="useExample(example)"
+          class="example-chip"
+        >
+          {{ example }}
+        </button>
+      </div>
+    </div>
+
+    <button
+      (click)="findMatches()"
+      [disabled]="loading || !description.trim()"
+      class="btn-primary"
+    >
+      <span *ngIf="!loading">🔍 Find Matches</span>
+      <span *ngIf="loading">⏳ Searching...</span>
+    </button>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">
+    ❌ {{ error }}
+  </div>
+
+  <div *ngIf="results.length > 0" class="results">
+    <h3>Top {{ results.length }} Matches</h3>
+    <div class="results-grid">
+      <div *ngFor="let result of results; let i = index" class="result-card">
+        <div class="rank">#{{ i + 1 }}</div>
+        <div class="result-content">
+          <div class="result-header">
+            <h4>Freelancer ID: {{ result.person_id }}</h4>
+            <div class="score-badge" [style.background-color]="getScoreColor(result.score)">
+              {{ getScorePercentage(result.score) }}%
+            </div>
+          </div>
+          <p class="profile">{{ result.profile }}</p>
+          <div class="score-bar">
+            <div
+              class="score-fill"
+              [style.width.%]="getScorePercentage(result.score)"
+              [style.background-color]="getScoreColor(result.score)"
+            ></div>
+          </div>
+          <p class="score-text">Match Score: {{ result.score.toFixed(4) }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

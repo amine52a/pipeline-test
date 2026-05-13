@@ -1,0 +1,234 @@
+version: '3.8'
+
+services:
+
+  # ─── DATABASE ────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: matchy-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: matchy_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/matchy_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - matchy-net
+
+  # ─── EUREKA ──────────────────────────────────────────────────────────────────
+  eureka:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    container_name: matchy-eureka
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    networks:
+      - matchy-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # ─── NODE.JS BACKEND ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: matchy-backend
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_NAME: matchy_db
+      JWT_SECRET: ${JWT_SECRET:-changeme}
+      PORT: 9090
+      EUREKA_SERVER_URL: http://eureka:8761/eureka
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  # ─── JAVA MICROSERVICES ───────────────────────────────────────────────────────
+  content-service:
+    build:
+      context: ./services/content-service
+      dockerfile: Dockerfile
+    container_name: matchy-content
+    restart: unless-stopped
+    ports:
+      - "8082:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/matchy_db?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-root}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  event-service:
+    build:
+      context: ./services/event-service
+      dockerfile: Dockerfile
+    container_name: matchy-event
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/matchy_db?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-root}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  subscription-service:
+    build:
+      context: ./services/subscription-service
+      dockerfile: Dockerfile
+    container_name: matchy-subscription
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/matchy_db?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-root}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  # ─── API GATEWAY ─────────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: matchy-gateway
+    restart: unless-stopped
+    ports:
+      - "8091:8091"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+    depends_on:
+      eureka:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  # ─── ML SERVICES ─────────────────────────────────────────────────────────────
+  ml-matching:
+    build:
+      context: ./Matching_Ml/Matching_services
+      dockerfile: Dockerfile
+    container_name: matchy-ml-matching
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      EUREKA_SERVER: http://eureka:8761/eureka
+    depends_on:
+      eureka:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  ml-prix:
+    build:
+      context: ./Matching_Ml/Prix_services
+      dockerfile: Dockerfile
+    container_name: matchy-ml-prix
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      EUREKA_SERVER: http://eureka:8761/eureka
+    depends_on:
+      eureka:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  ml-profil:
+    build:
+      context: ./Matching_Ml/Profil_services
+      dockerfile: Dockerfile
+    container_name: matchy-ml-profil
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      EUREKA_SERVER: http://eureka:8761/eureka
+    depends_on:
+      eureka:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  ml-feasibility:
+    build:
+      context: ./Matching_Ml/Project_feasibility_services
+      dockerfile: Dockerfile
+    container_name: matchy-ml-feasibility
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    environment:
+      EUREKA_SERVER: http://eureka:8761/eureka
+    depends_on:
+      eureka:
+        condition: service_healthy
+    networks:
+      - matchy-net
+
+  # ─── ANGULAR FRONTEND ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: matchy-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - matchy-net
+
+volumes:
+  mysql_data:
+
+networks:
+  matchy-net:
+    driver: bridge

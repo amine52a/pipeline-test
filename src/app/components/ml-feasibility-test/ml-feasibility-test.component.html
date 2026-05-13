@@ -1,0 +1,141 @@
+<div class="ml-container">
+  <div class="ml-header">
+    <h1>🎯 Project Feasibility Analysis</h1>
+    <p>Evaluate project feasibility using AI-powered analysis</p>
+  </div>
+
+  <div class="ml-card">
+    <div class="presets">
+      <p><strong>Quick Presets:</strong></p>
+      <button (click)="usePreset('small')" class="preset-btn">Small Project</button>
+      <button (click)="usePreset('medium')" class="preset-btn">Medium Project</button>
+      <button (click)="usePreset('large')" class="preset-btn">Large Project</button>
+    </div>
+
+    <div class="form-group">
+      <label for="description">Project Description</label>
+      <textarea
+        id="description"
+        [(ngModel)]="projectDescription"
+        rows="4"
+        class="form-control"
+        placeholder="Describe your project in detail..."
+      ></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="budget">Budget ($)</label>
+        <input
+          type="number"
+          id="budget"
+          [(ngModel)]="budget"
+          min="1"
+          class="form-control"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="timeline">Timeline (days)</label>
+        <input
+          type="number"
+          id="timeline"
+          [(ngModel)]="timeline"
+          min="1"
+          class="form-control"
+        />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="teamSize">Team Size</label>
+        <input
+          type="number"
+          id="teamSize"
+          [(ngModel)]="teamSize"
+          min="1"
+          class="form-control"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="complexity">Complexity Level</label>
+        <select id="complexity" [(ngModel)]="complexity" class="form-control">
+          <option *ngFor="let level of complexityLevels" [value]="level">
+            {{ level | titlecase }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <button
+      (click)="analyzeFeasibility()"
+      [disabled]="loading"
+      class="btn-primary"
+    >
+      <span *ngIf="!loading">🔍 Analyze Feasibility</span>
+      <span *ngIf="loading">⏳ Analyzing...</span>
+    </button>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">
+    ❌ {{ error }}
+  </div>
+
+  <div *ngIf="result" class="result-card">
+    <h3>Feasibility Analysis Result</h3>
+    <div class="result-content">
+      <div class="feasibility-display" [ngClass]="getFeasibilityClass()">
+        <div class="feasibility-value">{{ result.feasibility_score }}%</div>
+        <div class="feasibility-label">Feasibility Score</div>
+        <div class="feasibility-status">{{ getFeasibilityLabel() }}</div>
+      </div>
+      <div class="result-details">
+        <div class="detail-item">
+          <span class="label">Budget:</span>
+          <span class="value">${{ budget | number }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Timeline:</span>
+          <span class="value">{{ timeline }} days</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Team Size:</span>
+          <span class="value">{{ teamSize }} members</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Complexity:</span>
+          <span class="value">{{ complexity | titlecase }}</span>
+        </div>
+        <div class="detail-item" *ngIf="result.estimated_cost">
+          <span class="label">Estimated Cost:</span>
+          <span class="value">${{ result.estimated_cost | number }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="analysis-sections">
+      <div class="analysis-section" *ngIf="result.risks && result.risks.length > 0">
+        <h4>⚠️ Identified Risks</h4>
+        <ul>
+          <li *ngFor="let risk of result.risks">{{ risk }}</li>
+        </ul>
+      </div>
+
+      <div class="analysis-section" *ngIf="result.recommendations && result.recommendations.length > 0">
+        <h4>💡 Recommendations</h4>
+        <ul>
+          <li *ngFor="let rec of result.recommendations">{{ rec }}</li>
+        </ul>
+      </div>
+
+      <div class="analysis-section" *ngIf="result.success_factors && result.success_factors.length > 0">
+        <h4>✅ Success Factors</h4>
+        <ul>
+          <li *ngFor="let factor of result.success_factors">{{ factor }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,114 @@
+<div class="feasibility-test">
+  <h2>📊 Project Feasibility Prediction</h2>
+  <p class="description">Predict project success probability and risk assessment</p>
+
+  <div class="presets">
+    <button (click)="usePreset('high-success')" class="preset-btn">High Success Project</button>
+    <button (click)="usePreset('high-risk')" class="preset-btn">High Risk Project</button>
+  </div>
+
+  <div class="test-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Budget ($)</label>
+        <input type="number" [(ngModel)]="project.budget" min="0" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Team Size</label>
+        <input type="number" [(ngModel)]="project.team_size" min="1" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Duration (months)</label>
+        <input type="number" [(ngModel)]="project.duration_months" min="1" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Industry</label>
+        <input type="text" [(ngModel)]="project.industry" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Project Type</label>
+        <input type="text" [(ngModel)]="project.project_type" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Technology Stack</label>
+        <input type="text" [(ngModel)]="project.technology_stack" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Client Experience</label>
+        <select [(ngModel)]="project.client_experience" class="form-control">
+          <option *ngFor="let level of clientExperienceLevels" [value]="level">{{ level }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Team Experience (years)</label>
+        <input type="number" [(ngModel)]="project.team_experience_years" min="0" step="0.5" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label>Previous Projects</label>
+        <input type="number" [(ngModel)]="project.previous_projects" min="0" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Risk Score (0-10)</label>
+      <input type="number" [(ngModel)]="project.risk_score" min="0" max="10" step="0.1" class="form-control" />
+    </div>
+
+    <button (click)="predictFeasibility()" [disabled]="loading" class="btn-primary">
+      <span *ngIf="!loading">🔮 Predict Feasibility</span>
+      <span *ngIf="loading">⏳ Analyzing...</span>
+    </button>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">❌ {{ error }}</div>
+
+  <div *ngIf="result" class="results">
+    <div class="prediction-card" [class.success]="result.prediction.will_succeed" [class.failure]="!result.prediction.will_succeed">
+      <h3>Prediction Result</h3>
+      <div class="prediction-label">{{ result.prediction.label }}</div>
+      <div class="probabilities">
+        <div class="prob-item success">
+          <div class="prob-label">Success Probability</div>
+          <div class="prob-value">{{ result.prediction.success_probability }}%</div>
+          <div class="prob-bar">
+            <div class="prob-fill" [style.width.%]="result.prediction.success_probability"></div>
+          </div>
+        </div>
+        <div class="prob-item failure">
+          <div class="prob-label">Failure Probability</div>
+          <div class="prob-value">{{ result.prediction.failure_probability }}%</div>
+          <div class="prob-bar">
+            <div class="prob-fill" [style.width.%]="result.prediction.failure_probability"></div>
+          </div>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="metric">
+          <span class="metric-label">Confidence Level:</span>
+          <span class="metric-value">{{ result.prediction.confidence_level }}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Risk Level:</span>
+          <span class="metric-value risk" [style.color]="getRiskColor(result.prediction.risk_level)">
+            {{ result.prediction.risk_level }}
+          </span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Model Used:</span>
+          <span class="metric-value">{{ result.model_used }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommendation-card">
+      <h3>Recommendation</h3>
+      <p>{{ result.recommendation }}</p>
+    </div>
+  </div>
+</div>

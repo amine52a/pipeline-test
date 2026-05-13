@@ -1,0 +1,43 @@
+# Node
+node_modules/
+dist/
+.env
+*.env.local
+
+# Angular cache
+.angular/
+
+# Java
+target/
+*.class
+*.jar
+*.war
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# ML artifacts (large files - use Git LFS or store separately)
+# Matching_Ml/*/artifacts/*.pkl
+# Matching_Ml/*/artifacts/*.csv
+# Matching_Ml/*/artifacts/*.npy
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
